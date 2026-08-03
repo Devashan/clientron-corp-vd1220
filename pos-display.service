@@ -1,0 +1,18 @@
+[Unit]
+Description=POS Display API
+After=network-online.target tailscaled.service
+Wants=network-online.target tailscaled.service
+
+[Service]
+Type=simple
+User=ppos
+Group=ppos
+SupplementaryGroups=dialout
+WorkingDirectory=/home/ppos/Documents/pos-display
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /home/ppos/Documents/pos-display/main.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

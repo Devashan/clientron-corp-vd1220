@@ -1,0 +1,30 @@
+{
+  "serial": {
+    "port": "/dev/ttyS3",
+    "baud": 9600,
+    "mode": "escpos",
+    "timeout": 1,
+    "encoding": "ascii",
+    "line_length": 20,
+    "lines": 2
+  },
+  "discovery": {
+    "ports": [
+      "/dev/ttyS0",
+      "/dev/ttyS1",
+      "/dev/ttyS2",
+      "/dev/ttyS3",
+      "/dev/ttyS4",
+      "/dev/ttyS5"
+    ],
+    "bauds": [
+      9600,
+      19200
+    ],
+    "message": "Hello POS display"
+  },
+  "api": {
+    "host": "0.0.0.0",
+    "port": 8000
+  }
+}
