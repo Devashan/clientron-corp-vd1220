@@ -56,13 +56,42 @@ Only `pyserial` is required; the API uses the Python standard library.
         --data-urlencode 'line2=$12.34'
    ```
 
-5. **Reset to the default clock view**
+5. **Scroll long text (ticker view)**
+
+   `/scroll` takes the same `line1` / `line2` params, but any line longer than
+   the display width (20 chars) scrolls continuously instead of being cut off.
+   Lines that already fit stay put, so you can pair a scrolling message with a
+   static price.
+
+   ```bash
+   curl -G 'http://localhost:8000/scroll' \
+        --data-urlencode 'line1=Welcome to Clientron - ask about our specials' \
+        --data-urlencode 'line2=$12.34'
+   ```
+
+   Optional params:
+
+   - `speed` – seconds between steps (default `0.3`, clamped to `0.05`–`5`).
+     Lower is faster.
+   - `gap` – blanks shown between the end of the text and the start of the next
+     repeat (default three spaces).
+
+   ```bash
+   curl -G 'http://localhost:8000/scroll' \
+        --data-urlencode 'line1=Fresh coffee, all day' \
+        --data-urlencode 'speed=0.15' \
+        --data-urlencode 'gap=  ***  '
+   ```
+
+   The ticker keeps running until you call `/display` or `/reset`.
+
+6. **Reset to the default clock view**
 
    ```bash
    curl http://localhost:8000/reset
    ```
 
-6. **Check service status**
+7. **Check service status**
 
    ```bash
    curl http://localhost:8000/health
@@ -97,6 +126,6 @@ It will start automatically on boot after the network and Tailscale are availabl
 - `config.json` – serial port, baud rate, and display mode.
 - `discover.py` – interactive probe to find the display.
 - `display.py` – serial driver (`raw`, `cd5220`, `escpos`).
-- `main.py` – HTTP API server with default clock view.
+- `main.py` – HTTP API server with default clock and scrolling ticker views.
 - `pos-display.service` – systemd unit for startup.
 - `requirements.txt` – only `pyserial`.
