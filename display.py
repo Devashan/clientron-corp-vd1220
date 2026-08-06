@@ -28,6 +28,11 @@ class SerialDisplay:
     def is_open(self):
         return self._ser is not None and self._ser.is_open
 
+    @property
+    def supports_line_addressing(self):
+        """Whether one line can be rewritten without redrawing the display."""
+        return self.mode in {"escpos", "cd5220"}
+
     def open(self):
         if not self.port:
             raise ValueError("No serial port configured (run discover.py first).")
@@ -65,6 +70,36 @@ class SerialDisplay:
             data = self._escpos_payload(text, line1, line2)
         elif self.mode == "cd5220":
             data = self._cd5220_payload(text, line1, line2)
+
+        self._ser.write(data)
+        self._ser.flush()
+
+    def set_line(self, line, text):
+        """Overwrite a single line, leaving the rest of the display alone.
+
+        `set_text` re-initializes and clears the whole display, which makes an
+        untouched line blink each time the other one is rewritten. This sends
+        only a cursor move and the new characters, so anything already on the
+        display stays lit. Needs a mode with cursor addressing — check
+        `supports_line_addressing` first.
+        """
+        if line not in (1, 2):
+            raise ValueError("line must be 1 or 2")
+        if not self.supports_line_addressing:
+            raise ValueError(f"Mode '{self.mode}' cannot address a single line")
+        if not self.is_open:
+            self.open()
+
+        # Pad to the full width: with no clear command in play, leftovers from
+        # a longer previous value would otherwise stay on screen.
+        padded = (text or "")[: self.line_length].ljust(self.line_length)
+        if self.mode == "escpos":
+            # US $ x y = move cursor to column 1 of the requested line.
+            data = b"\x1f\x24\x01" + bytes([line]) + self._encode(padded)
+        else:
+            # ESC Q A/B <data> CR = write the upper/lower line.
+            select = b"\x41" if line == 1 else b"\x42"
+            data = b"\x1b\x51" + select + self._encode(padded) + b"\x0d"
 
         self._ser.write(data)
         self._ser.flush()

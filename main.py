@@ -34,6 +34,10 @@ scroll_state = {
     "offset2": 0,
     "speed": DEFAULT_SCROLL_SPEED,
     "gap": DEFAULT_SCROLL_GAP,
+    # What is currently on each line, so a line that has not moved can be
+    # left alone instead of being redrawn.
+    "frame1": None,
+    "frame2": None,
 }
 
 
@@ -85,6 +89,41 @@ def next_offset(text, offset, width, gap):
     return (offset + 1) % (len(text) + len(gap))
 
 
+def draw_scroll_frames(frame1, frame2):
+    """Put the given frames on the display, rewriting as little as possible.
+
+    A line whose content has not changed is left untouched, and on displays
+    with cursor addressing the changed lines are written in place. Without
+    this the whole display would be cleared every tick and a short, static
+    line would visibly blink alongside the scrolling one.
+
+    Callers must hold `scroll_lock`.
+    """
+    changed = [
+        (n, frame)
+        for n, frame, shown in (
+            (1, frame1, scroll_state["frame1"]),
+            (2, frame2, scroll_state["frame2"]),
+        )
+        if frame != shown
+    ]
+    if not changed:
+        return
+
+    with display_lock:
+        if not display.is_open:
+            display.open()
+        if display.supports_line_addressing:
+            for n, frame in changed:
+                display.set_line(n, frame)
+        else:
+            # No cursor control in raw mode: both lines go out together.
+            display.set_text(line1=frame1, line2=frame2)
+
+    scroll_state["frame1"] = frame1
+    scroll_state["frame2"] = frame2
+
+
 def scroll_loop():
     """Background thread that animates the ticker view."""
     while not stop_event.is_set():
@@ -97,8 +136,8 @@ def scroll_loop():
                 width = display.line_length
                 gap = scroll_state["gap"]
                 text1, text2 = scroll_state["line1"], scroll_state["line2"]
-                line1 = ticker_frame(text1, scroll_state["offset1"], width, gap)
-                line2 = ticker_frame(text2, scroll_state["offset2"], width, gap)
+                # Advance first, then render: the frame at the current offset
+                # is already on the display.
                 scroll_state["offset1"] = next_offset(
                     text1, scroll_state["offset1"], width, gap
                 )
@@ -106,11 +145,10 @@ def scroll_loop():
                     text2, scroll_state["offset2"], width, gap
                 )
                 speed = scroll_state["speed"]
-
-            with display_lock:
-                if not display.is_open:
-                    display.open()
-                display.set_text(line1=line1, line2=line2)
+                draw_scroll_frames(
+                    ticker_frame(text1, scroll_state["offset1"], width, gap),
+                    ticker_frame(text2, scroll_state["offset2"], width, gap),
+                )
         except Exception as e:
             print(f"Scroll view error: {e}")
             speed = DEFAULT_SCROLL_SPEED
@@ -205,14 +243,18 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
                         gap=gap,
                     )
                     # Draw the first frame here so the response and the display
-                    # agree even before the ticker thread's next tick.
+                    # agree even before the ticker thread's next tick. This is
+                    # the one full redraw: whatever the previous view left
+                    # behind gets cleared, and from here the ticker only
+                    # rewrites lines as they move.
                     frame1 = ticker_frame(line1, 0, width, gap)
                     frame2 = ticker_frame(line2, 0, width, gap)
-
-                with display_lock:
-                    if not display.is_open:
-                        display.open()
-                    display.set_text(line1=frame1, line2=frame2)
+                    with display_lock:
+                        if not display.is_open:
+                            display.open()
+                        display.set_text(line1=frame1, line2=frame2)
+                    scroll_state["frame1"] = frame1
+                    scroll_state["frame2"] = frame2
 
                 view_state = "scroll"
                 json_response(

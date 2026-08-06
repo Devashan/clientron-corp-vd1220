@@ -85,6 +85,12 @@ Only `pyserial` is required; the API uses the Python standard library.
 
    The ticker keeps running until you call `/display` or `/reset`.
 
+   Only the line that is actually moving gets rewritten, in place and without
+   a clear, so a short line sitting next to a scrolling one stays lit instead
+   of blinking on every step. This needs cursor addressing, so it applies to
+   `escpos` and `cd5220`; `raw` mode has no way to target a single line and
+   still rewrites both.
+
 6. **Reset to the default clock view**
 
    ```bash
