@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>POS Display Route Tester</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230b0f14'/%3E%3Crect x='3' y='5' width='10' height='2' fill='%235ff0d0'/%3E%3Crect x='3' y='9' width='7' height='2' fill='%235ff0d0'/%3E%3C/svg%3E" />
+<style>
+  :root {
+    --bg: #0b0f14;
+    --panel: #121a23;
+    --sunken: #0a1119;
+    --line: #22303d;
+    --text: #dce7f1;
+    --muted: #8ba0b4;
+    --vfd: #5ff0d0;
+    --amber: #f5c06b;
+    --red: #ff7b72;
+    --green: #7ee39b;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding-block: 20px 48px; padding-inline: 16px; }
+
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand .logo { font: 20px/1 var(--mono); color: var(--vfd); text-shadow: 0 0 10px rgba(95, 240, 208, .5); }
+  h1 { font-size: 17px; margin: 0; letter-spacing: .2px; }
+  .sub { margin: 0; font-size: 12px; color: var(--muted); }
+
+  .chip {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 999px;
+    padding: 6px 12px; font: 12px/1.4 var(--mono); color: var(--muted);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.up { background: var(--green); box-shadow: 0 0 8px rgba(126, 227, 155, .7); }
+  .dot.down { background: var(--red); box-shadow: 0 0 8px rgba(255, 123, 114, .7); }
+
+  /* --- VFD preview ------------------------------------------------ */
+  .preview { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 18px; }
+  .preview-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+  .preview-head h2 { font-size: 13px; margin: 0; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
+  .tag { font: 11px/1.6 var(--mono); color: var(--vfd); border: 1px solid #24564d; background: #10241f; border-radius: 4px; padding: 0 7px; }
+  .vfd {
+    background: #050a0e; border: 1px solid #1b2b36; border-radius: 8px;
+    padding: 14px 12px 8px; overflow-x: auto;
+    box-shadow: inset 0 0 26px rgba(95, 240, 208, .07);
+  }
+  .vfd-line {
+    font: clamp(15px, 4.1vw, 21px)/1.55 var(--mono);
+    letter-spacing: .13em; white-space: pre; color: var(--vfd);
+    text-shadow: 0 0 9px rgba(95, 240, 208, .45);
+  }
+  .ruler { font: 11px/1.5 var(--mono); letter-spacing: .13em; white-space: pre; color: #2c4450; margin-top: 4px; }
+  .preview-note { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
+
+  /* --- route cards ------------------------------------------------ */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 11px; }
+  .card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .method { font: 11px/1.7 var(--mono); background: #14313b; color: var(--vfd); border-radius: 4px; padding: 0 7px; letter-spacing: .06em; }
+  .route { font: 14px/1.5 var(--mono); color: var(--text); }
+  .card p.hint { margin: 0; font-size: 12px; color: var(--muted); }
+  .card p.hint code { color: #a9bccd; }
+
+  form { display: flex; flex-direction: column; gap: 10px; }
+  .field-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 8px; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .count { font: 11px/1.4 var(--mono); }
+  .count.over { color: var(--amber); }
+  .count.scrolls { color: var(--vfd); }
+  input[type="text"], input[type="number"] {
+    width: 100%; background: var(--sunken); border: 1px solid var(--line); border-radius: 6px;
+    color: var(--text); padding: 8px 10px; font: 13px/1.4 var(--mono);
+  }
+  input:focus-visible { outline: 2px solid #2e7c6e; outline-offset: 1px; border-color: #2e7c6e; }
+  input[type="range"] { width: 100%; accent-color: #5ff0d0; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+  .row > * { flex: 1 1 130px; min-width: 0; }
+  @media (max-width: 460px) { .row > * { flex-basis: 100%; } }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips button {
+    background: #16222c; border: 1px solid var(--line); color: var(--muted);
+    border-radius: 999px; padding: 3px 10px; font: 11px/1.6 var(--mono); cursor: pointer;
+  }
+  .chips button:hover { color: var(--text); border-color: #345061; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  button.send {
+    background: #1b4d45; border: 1px solid #2e7c6e; color: #c4f7ec;
+    border-radius: 6px; padding: 8px 16px; font: 13px/1.4 inherit; font-weight: 600; cursor: pointer;
+  }
+  button.send:hover { background: #236055; }
+  button.ghost {
+    background: transparent; border: 1px solid var(--line); color: var(--muted);
+    border-radius: 6px; padding: 7px 12px; font: 12px/1.4 inherit; cursor: pointer;
+  }
+  button.ghost:hover { color: var(--text); border-color: #345061; }
+
+  .req { display: flex; gap: 8px; align-items: flex-start; justify-content: space-between; background: var(--sunken); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; }
+  .req code { font: 11.5px/1.5 var(--mono); color: #9fd8cb; word-break: break-all; }
+  .res { min-height: 20px; }
+  .res-head { display: flex; gap: 8px; align-items: center; font: 11px/1.6 var(--mono); color: var(--muted); }
+  .status { border-radius: 4px; padding: 0 7px; font-weight: 600; }
+  .s2 { background: #12321f; color: var(--green); }
+  .s4 { background: #33270f; color: var(--amber); }
+  .s5, .serr { background: #331717; color: var(--red); }
+  pre {
+    margin: 6px 0 0; background: var(--sunken); border: 1px solid var(--line); border-radius: 6px;
+    padding: 8px 10px; font: 11.5px/1.5 var(--mono); color: #b8ccd9;
+    white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow: auto;
+  }
+
+  /* --- log --------------------------------------------------------- */
+  .log-panel { margin-top: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .log-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .log-head h2 { font-size: 13px; margin: 0; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
+  #log { max-height: 300px; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+  .entry { display: flex; gap: 8px; align-items: baseline; font: 11.5px/1.6 var(--mono); border-bottom: 1px solid #17222c; padding-bottom: 5px; }
+  .entry .t { color: #5d7385; flex: none; }
+  .entry .u { color: #a9bccd; word-break: break-all; }
+  .entry .ms { color: #5d7385; margin-left: auto; flex: none; }
+  .empty { color: var(--muted); font-size: 12px; }
+  footer { margin-top: 22px; font-size: 12px; color: #5d7385; }
+  footer code { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <span class="logo">&#9646;&#9646;</span>
+      <div>
+        <h1>POS Display API</h1>
+        <p class="sub">Route tester &middot; Clientron VD1220 20&times;2 VFD</p>
+      </div>
+    </div>
+    <div class="chip" id="chip">
+      <span class="dot" id="dot"></span>
+      <span id="chipText">checking&hellip;</span>
+    </div>
+  </header>
+
+  <section class="preview">
+    <div class="preview-head">
+      <h2>Display preview</h2>
+      <span class="tag" id="viewTag">view: &mdash;</span>
+    </div>
+    <div class="vfd">
+      <div class="vfd-line" id="pv1"></div>
+      <div class="vfd-line" id="pv2"></div>
+      <div class="ruler" id="ruler"></div>
+    </div>
+    <p class="preview-note" id="previewNote">Simulated in the browser from what this page sends &mdash; the hardware is driven over serial.</p>
+  </section>
+
+  <div class="grid">
+
+    <section class="card">
+      <div class="card-head"><span class="method">GET</span><code class="route">/display</code></div>
+      <p class="hint">Two static lines, truncated at the display width. Sets the view to <code>custom</code>, which stops the clock and the ticker.</p>
+      <form id="fDisplay">
+        <div>
+          <div class="field-head"><label for="d1">line1</label><span class="count" id="cD1">0 / 20</span></div>
+          <input type="text" id="d1" name="line1" placeholder="Sale" autocomplete="off" />
+        </div>
+        <div>
+          <div class="field-head"><label for="d2">line2</label><span class="count" id="cD2">0 / 20</span></div>
+          <input type="text" id="d2" name="line2" placeholder="$12.34" autocomplete="off" />
+        </div>
+        <div class="chips">
+          <button type="button" data-fill="Sale|$12.34">Sale</button>
+          <button type="button" data-fill="Total|$104.90">Total</button>
+          <button type="button" data-fill="Thank you!|Please call again">Thanks</button>
+          <button type="button" data-fill="|">clear (400)</button>
+        </div>
+        <div class="actions">
+          <button class="send" type="submit">Send</button>
+          <span class="hint" style="font-size:12px;color:var(--muted)">both empty &rarr; 400</span>
+        </div>
+      </form>
+      <div class="req"><code id="uDisplay">/display</code><button class="ghost" type="button" data-curl="display">curl</button></div>
+      <div class="res" id="rDisplay"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><span class="method">GET</span><code class="route">/scroll</code></div>
+      <p class="hint">Same two lines, but anything longer than the width tickers instead of being cut off. A line that already fits stays put.</p>
+      <form id="fScroll">
+        <div>
+          <div class="field-head"><label for="s1">line1</label><span class="count" id="cS1">0 / 20</span></div>
+          <input type="text" id="s1" name="line1" placeholder="Welcome to Clientron - ask about our specials" autocomplete="off" />
+        </div>
+        <div>
+          <div class="field-head"><label for="s2">line2</label><span class="count" id="cS2">0 / 20</span></div>
+          <input type="text" id="s2" name="line2" placeholder="$12.34" autocomplete="off" />
+        </div>
+        <div class="row">
+          <div>
+            <div class="field-head"><label for="sp">speed</label><span class="count" id="cSp">0.30 s/step</span></div>
+            <input type="range" id="sp" min="0.05" max="5" step="0.05" value="0.3" />
+          </div>
+          <div>
+            <div class="field-head"><label for="gp">gap</label><span class="count" id="cGp">3 chars &middot; &#9251;&#9251;&#9251;</span></div>
+            <input type="text" id="gp" value="   " autocomplete="off" />
+          </div>
+        </div>
+        <div class="chips">
+          <button type="button" data-fill="Welcome to Clientron - ask about our specials|$12.34">Welcome</button>
+          <button type="button" data-fill="Fresh coffee, all day - brewed on the hour|">Coffee</button>
+          <button type="button" data-gap="  ***  ">gap ***</button>
+          <button type="button" data-gap="   ">gap 3sp</button>
+        </div>
+        <div class="actions">
+          <button class="send" type="submit">Send</button>
+          <span class="hint" style="font-size:12px;color:var(--muted)">speed clamps to 0.05&ndash;5</span>
+        </div>
+      </form>
+      <div class="req"><code id="uScroll">/scroll</code><button class="ghost" type="button" data-curl="scroll">curl</button></div>
+      <div class="res" id="rScroll"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><span class="method">GET</span><code class="route">/reset</code></div>
+      <p class="hint">Back to the default view: <code>Hello, Devii</code> centered over a clock that reprints every second.</p>
+      <div class="actions">
+        <button class="send" type="button" id="bReset">Send</button>
+      </div>
+      <div class="req"><code>/reset</code><button class="ghost" type="button" data-curl="reset">curl</button></div>
+      <div class="res" id="rReset"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><span class="method">GET</span><code class="route">/health</code></div>
+      <p class="hint">Serial port, baud, mode, whether the port is open, and the active view. Polled every 10s for the badge up top.</p>
+      <div class="actions">
+        <button class="send" type="button" id="bHealth">Send</button>
+        <button class="ghost" type="button" id="bAuto">pause polling</button>
+      </div>
+      <div class="req"><code>/health</code><button class="ghost" type="button" data-curl="health">curl</button></div>
+      <div class="res" id="rHealth"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><span class="method">GET</span><code class="route">any path</code></div>
+      <p class="hint">Send a raw path and query string &mdash; handy for checking the 404 fall-through or a param the forms above do not cover.</p>
+      <form id="fRaw">
+        <div>
+          <div class="field-head"><label for="raw">path</label></div>
+          <input type="text" id="raw" value="/nope" autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="chips">
+          <button type="button" data-raw="/display?line1=Hi%20there&amp;line2=Line%20two">/display encoded</button>
+          <button type="button" data-raw="/scroll?line1=Long%20marquee%20message%20for%20the%20VFD&amp;speed=0.1">/scroll fast</button>
+          <button type="button" data-raw="/scroll?line1=Test&amp;speed=abc">bad speed (400)</button>
+          <button type="button" data-raw="/nope">404</button>
+        </div>
+        <div class="actions"><button class="send" type="submit">Send</button></div>
+      </form>
+      <div class="res" id="rRaw"></div>
+    </section>
+
+  </div>
+
+  <section class="log-panel">
+    <div class="log-head">
+      <h2>Request log</h2>
+      <button class="ghost" type="button" id="bClear">clear</button>
+    </div>
+    <div id="log"><p class="empty">No requests yet.</p></div>
+  </section>
+
+  <footer>
+    Served by <code>main.py</code> at <code>GET /</code>. Everything on this page is a plain GET against the same host, so it works over Tailscale too.
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { width: 20, view: "—", polling: true };
+
+  /* ---------- display preview -------------------------------------
+     Mirrors the server's ticker maths (ticker_frame / next_offset in
+     main.py) so the box on screen steps in time with the hardware. */
+
+  var preview = { mode: "default", line1: "", line2: "", speed: 0.3, gap: "   ", off1: 0, off2: 0, known: false };
+  var clockTimer = null, scrollTimer = null;
+
+  function pad(s) {
+    s = (s || "").slice(0, state.width);
+    while (s.length < state.width) { s += " "; }
+    return s;
+  }
+
+  function center(s, width) {
+    if (s.length >= width) { return s.slice(0, width); }
+    var left = Math.floor((width - s.length) / 2);
+    return pad(new Array(left + 1).join(" ") + s);
+  }
+
+  function tickerFrame(text, offset, width, gap) {
+    if (text.length <= width) { return text; }
+    var loop = text + gap;
+    return (loop + loop.slice(0, width)).slice(offset % loop.length).slice(0, width);
+  }
+
+  function nextOffset(text, offset, width, gap) {
+    if (text.length <= width) { return 0; }
+    return (offset + 1) % (text.length + gap.length);
+  }
+
+  function clockLine() {
+    var d = new Date(), p = function (n) { return String(n).padStart(2, "0"); };
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " +
+           p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+  }
+
+  function paint(l1, l2) {
+    $("pv1").textContent = pad(l1);
+    $("pv2").textContent = pad(l2);
+  }
+
+  function drawRuler() {
+    var out = "";
+    for (var i = 1; i <= state.width; i++) { out += (i % 5 === 0) ? "|" : "·"; }
+    $("ruler").textContent = out;
+  }
+
+  function stopTimers() {
+    if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
+    if (scrollTimer) { clearInterval(scrollTimer); scrollTimer = null; }
+  }
+
+  function setPreview(mode, opts) {
+    stopTimers();
+    preview.mode = mode;
+    preview.known = true;
+    $("viewTag").textContent = "view: " + mode;
+
+    if (!opts && mode !== "default") {
+      // The view was set from somewhere else, so there is nothing to draw.
+      preview.known = false;
+      paint("", "");
+      note("The API reports view “" + mode + "”, set from another client — send a request to mirror it here.");
+      return;
+    }
+
+    if (mode === "default") {
+      var tick = function () { paint(center("Hello, Devii", state.width), clockLine()); };
+      tick();
+      clockTimer = setInterval(tick, 1000);
+      note("Default view: a static greeting over a clock the server reprints every second.");
+      return;
+    }
+
+    if (mode === "custom") {
+      preview.line1 = opts.line1 || "";
+      preview.line2 = opts.line2 || "";
+      paint(preview.line1, preview.line2);
+      var cut = preview.line1.length > state.width || preview.line2.length > state.width;
+      note(cut ? "Anything past " + state.width + " characters is dropped by the driver — use /scroll for longer text."
+               : "Static text held until the next /display, /scroll or /reset.");
+      return;
+    }
+
+    if (mode === "scroll") {
+      preview.line1 = opts.line1 || "";
+      preview.line2 = opts.line2 || "";
+      preview.speed = opts.speed;
+      preview.gap = opts.gap;
+      preview.off1 = 0;
+      preview.off2 = 0;
+      paint(tickerFrame(preview.line1, 0, state.width, preview.gap),
+            tickerFrame(preview.line2, 0, state.width, preview.gap));
+      scrollTimer = setInterval(function () {
+        preview.off1 = nextOffset(preview.line1, preview.off1, state.width, preview.gap);
+        preview.off2 = nextOffset(preview.line2, preview.off2, state.width, preview.gap);
+        paint(tickerFrame(preview.line1, preview.off1, state.width, preview.gap),
+              tickerFrame(preview.line2, preview.off2, state.width, preview.gap));
+      }, preview.speed * 1000);
+      var moving = [];
+      if (preview.line1.length > state.width) { moving.push("line1"); }
+      if (preview.line2.length > state.width) { moving.push("line2"); }
+      note(moving.length ? "Scrolling " + moving.join(" and ") + " at " + preview.speed.toFixed(2) + "s per step."
+                         : "Both lines fit, so nothing moves — the ticker holds them still.");
+      return;
+    }
+  }
+
+  function note(text) { $("previewNote").textContent = text; }
+
+  /* ---------- requests --------------------------------------------- */
+
+  function withQuery(path, params) {
+    var q = new URLSearchParams();
+    Object.keys(params).forEach(function (k) {
+      var v = params[k];
+      if (v !== "" && v !== null && v !== undefined) { q.set(k, v); }
+    });
+    var s = q.toString();
+    return s ? path + "?" + s : path;
+  }
+
+  function send(url, opts) {
+    var silent = opts && opts.silent;
+    var t0 = performance.now();
+    return fetch(url, { cache: "no-store" }).then(function (res) {
+      return res.text().then(function (text) {
+        var ms = Math.round(performance.now() - t0);
+        var body = null;
+        try { body = JSON.parse(text); } catch (e) { /* not JSON, keep the text */ }
+        var r = { ok: true, status: res.status, body: body, text: text, ms: ms, url: url };
+        if (!silent) { logEntry(r); }
+        return r;
+      });
+    }).catch(function (err) {
+      var r = { ok: false, status: 0, error: String(err && err.message || err), ms: Math.round(performance.now() - t0), url: url };
+      if (!silent) { logEntry(r); }
+      setChipDown(r.error);
+      return r;
+    });
+  }
+
+  function statusClass(status) {
+    if (!status) { return "serr"; }
+    if (status < 300) { return "s2"; }
+    if (status < 500) { return "s4"; }
+    return "s5";
+  }
+
+  function bodyText(r) {
+    if (!r.ok) { return "network error: " + r.error; }
+    if (r.body !== null) { return JSON.stringify(r.body, null, 2); }
+    var t = (r.text || "").trim();
+    return t.length > 400 ? t.slice(0, 400) + "…" : (t || "(empty body)");
+  }
+
+  function showResult(el, r) {
+    el.innerHTML = "";
+    var head = document.createElement("div");
+    head.className = "res-head";
+    var pill = document.createElement("span");
+    pill.className = "status " + statusClass(r.status);
+    pill.textContent = r.ok ? r.status : "ERR";
+    var when = document.createElement("span");
+    when.textContent = r.ms + " ms";
+    head.appendChild(pill);
+    head.appendChild(when);
+    var pre = document.createElement("pre");
+    pre.textContent = bodyText(r);
+    el.appendChild(head);
+    el.appendChild(pre);
+  }
+
+  function logEntry(r) {
+    var log = $("log");
+    var empty = log.querySelector(".empty");
+    if (empty) { log.removeChild(empty); }
+
+    var row = document.createElement("div");
+    row.className = "entry";
+    var d = new Date(), p = function (n) { return String(n).padStart(2, "0"); };
+
+    var t = document.createElement("span");
+    t.className = "t";
+    t.textContent = p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+
+    var pill = document.createElement("span");
+    pill.className = "status " + statusClass(r.status);
+    pill.textContent = r.ok ? r.status : "ERR";
+
+    var u = document.createElement("span");
+    u.className = "u";
+    u.textContent = r.url;
+    try { u.title = decodeURIComponent(r.url.split("+").join(" ")); } catch (e) { u.title = r.url; }
+
+    var ms = document.createElement("span");
+    ms.className = "ms";
+    ms.textContent = r.ms + " ms";
+
+    row.appendChild(t);
+    row.appendChild(pill);
+    row.appendChild(u);
+    row.appendChild(ms);
+    log.insertBefore(row, log.firstChild);
+
+    while (log.children.length > 30) { log.removeChild(log.lastChild); }
+  }
+
+  /* ---------- health badge ------------------------------------------ */
+
+  function setChipDown(msg) {
+    $("dot").className = "dot down";
+    $("chipText").textContent = msg ? "unreachable" : "unreachable";
+    $("chip").title = msg || "";
+  }
+
+  function renderHealth(h) {
+    $("dot").className = "dot " + (h.open ? "up" : "down");
+    $("chipText").textContent = h.mode + " · " + h.port + " @ " + h.baud + " · " + (h.open ? "open" : "closed");
+    $("chip").title = "status: " + h.status + " · view: " + h.view;
+    if (h.line_length && h.line_length !== state.width) {
+      state.width = h.line_length;
+      drawRuler();
+      updateCounts();
+    }
+    state.view = h.view;
+    if (!preview.known) { setPreview(h.view === "default" ? "default" : h.view); }
+  }
+
+  function refreshHealth(opts) {
+    return send("/health", { silent: !(opts && opts.log) }).then(function (r) {
+      if (r.ok && r.body) { renderHealth(r.body); }
+      return r;
+    });
+  }
+
+  /* ---------- field wiring ------------------------------------------ */
+
+  function countLabel(el, input, scrollAware) {
+    var n = input.value.length;
+    el.textContent = n + " / " + state.width;
+    el.className = "count";
+    if (n > state.width) { el.className = scrollAware ? "count scrolls" : "count over"; }
+    if (n > state.width) { el.textContent += scrollAware ? " · scrolls" : " · truncated"; }
+  }
+
+  function updateCounts() {
+    countLabel($("cD1"), $("d1"), false);
+    countLabel($("cD2"), $("d2"), false);
+    countLabel($("cS1"), $("s1"), true);
+    countLabel($("cS2"), $("s2"), true);
+  }
+
+  function gapLabel(gap) {
+    var shown = gap.split(" ").join("␣");
+    if (shown.length > 12) { shown = shown.slice(0, 12) + "…"; }
+    return gap.length + " chars · " + shown;
+  }
+
+  function displayParams() { return { line1: $("d1").value, line2: $("d2").value }; }
+
+  function scrollParams() {
+    var p = { line1: $("s1").value, line2: $("s2").value, speed: $("sp").value };
+    if ($("gp").value !== "") { p.gap = $("gp").value; }
+    return p;
+  }
+
+  function urls() {
+    $("uDisplay").textContent = withQuery("/display", displayParams());
+    $("uScroll").textContent = withQuery("/scroll", scrollParams());
+  }
+
+  function curlFor(path, params) {
+    var q = function (v) { return "'" + String(v).split("'").join("'\\''") + "'"; };
+    var parts = ["curl -sS -G " + q(location.origin + path)];
+    Object.keys(params).forEach(function (k) {
+      var v = params[k];
+      if (v !== "" && v !== null && v !== undefined) { parts.push("     --data-urlencode " + q(k + "=" + v)); }
+    });
+    return parts.join(" \\\n");
+  }
+
+  function copyText(text, btn) {
+    var label = btn.textContent;
+    var done = function () {
+      btn.textContent = "copied";
+      setTimeout(function () { btn.textContent = label; }, 1200);
+    };
+    var fallback = function () {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.top = "-1000px";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); done(); } catch (e) { /* nothing else to try */ }
+      document.body.removeChild(ta);
+    };
+    // The API is served over plain HTTP, so the async clipboard is usually
+    // unavailable; fall back to the old selection trick.
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done, fallback);
+    } else {
+      fallback();
+    }
+  }
+
+  ["d1", "d2", "s1", "s2", "sp", "gp"].forEach(function (id) {
+    $(id).addEventListener("input", function () {
+      updateCounts();
+      urls();
+      $("cSp").textContent = Number($("sp").value).toFixed(2) + " s/step";
+      $("cGp").textContent = gapLabel($("gp").value);
+    });
+  });
+
+  document.querySelectorAll("[data-fill]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var parts = btn.getAttribute("data-fill").split("|");
+      var form = btn.closest("form");
+      var ids = form.id === "fDisplay" ? ["d1", "d2"] : ["s1", "s2"];
+      $(ids[0]).value = parts[0] || "";
+      $(ids[1]).value = parts[1] || "";
+      updateCounts();
+      urls();
+    });
+  });
+
+  document.querySelectorAll("[data-gap]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      $("gp").value = btn.getAttribute("data-gap");
+      $("cGp").textContent = gapLabel($("gp").value);
+      urls();
+    });
+  });
+
+  document.querySelectorAll("[data-raw]").forEach(function (btn) {
+    btn.addEventListener("click", function () { $("raw").value = btn.getAttribute("data-raw"); });
+  });
+
+  document.querySelectorAll("[data-curl]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var which = btn.getAttribute("data-curl");
+      var text = which === "display" ? curlFor("/display", displayParams())
+               : which === "scroll" ? curlFor("/scroll", scrollParams())
+               : "curl -sS '" + location.origin + "/" + which + "'";
+      copyText(text, btn);
+    });
+  });
+
+  /* ---------- route handlers ---------------------------------------- */
+
+  $("fDisplay").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var p = displayParams();
+    send(withQuery("/display", p)).then(function (r) {
+      showResult($("rDisplay"), r);
+      if (r.ok && r.status === 200) { setPreview("custom", p); }
+      refreshHealth();
+    });
+  });
+
+  $("fScroll").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var p = scrollParams();
+    send(withQuery("/scroll", p)).then(function (r) {
+      showResult($("rScroll"), r);
+      if (r.ok && r.status === 200 && r.body) {
+        // Use the server's echo: speed is clamped and gap may have fallen
+        // back to the default, so the preview follows what it actually did.
+        setPreview("scroll", {
+          line1: r.body.line1,
+          line2: r.body.line2,
+          speed: r.body.speed,
+          gap: r.body.gap
+        });
+      }
+      refreshHealth();
+    });
+  });
+
+  $("bReset").addEventListener("click", function () {
+    send("/reset").then(function (r) {
+      showResult($("rReset"), r);
+      if (r.ok && r.status === 200) { setPreview("default"); }
+      refreshHealth();
+    });
+  });
+
+  $("bHealth").addEventListener("click", function () {
+    refreshHealth({ log: true }).then(function (r) { showResult($("rHealth"), r); });
+  });
+
+  $("bAuto").addEventListener("click", function () {
+    state.polling = !state.polling;
+    $("bAuto").textContent = state.polling ? "pause polling" : "resume polling";
+  });
+
+  $("fRaw").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var path = $("raw").value.trim();
+    if (path === "") { path = "/"; }
+    if (path.charAt(0) !== "/") { path = "/" + path; }
+    send(path).then(function (r) {
+      showResult($("rRaw"), r);
+      refreshHealth();
+    });
+  });
+
+  $("bClear").addEventListener("click", function () {
+    $("log").innerHTML = '<p class="empty">No requests yet.</p>';
+  });
+
+  /* ---------- boot --------------------------------------------------- */
+
+  drawRuler();
+  updateCounts();
+  urls();
+  paint("", "");
+  refreshHealth();
+  setInterval(function () {
+    if (state.polling && !document.hidden) { refreshHealth(); }
+  }, 10000);
+})();
+</script>
+</body>
+</html>

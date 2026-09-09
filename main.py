@@ -6,6 +6,7 @@ import json
 import threading
 import time
 from datetime import datetime
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from display import SerialDisplay, load_config
@@ -18,6 +19,10 @@ view_state = "default"  # 'default', 'custom' or 'scroll'
 stop_event = threading.Event()
 
 DEFAULT_LINE1 = "Hello, Devii".center(20)
+
+# Route tester page served at "/". Kept next to main.py rather than in a
+# static dir so the whole project stays flat.
+INDEX_PATH = Path(__file__).resolve().parent / "index.html"
 
 # Ticker defaults. `gap` is the run of blanks shown between the end of the
 # text and the start of the next repeat so the wrap-around is readable.
@@ -165,6 +170,16 @@ def json_response(handler, code, data):
     handler.wfile.write(body)
 
 
+def html_response(handler, code, html):
+    body = html.encode("utf-8")
+    handler.send_response(code)
+    handler.send_header("Content-Type", "text/html; charset=utf-8")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("Cache-Control", "no-store")
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
 class APIHandler(http.server.BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         print(fmt % args)
@@ -175,6 +190,15 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
         qs = parse_qs(parsed.query)
+
+        if path in ("/", "/index.html"):
+            try:
+                # Read per request so edits to the page show up on a refresh
+                # without restarting the service.
+                html_response(self, 200, INDEX_PATH.read_text(encoding="utf-8"))
+            except OSError as e:
+                json_response(self, 500, {"error": f"index page unavailable: {e}"})
+            return
 
         if path == "/health":
             json_response(
@@ -187,6 +211,8 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
                     "mode": display.mode,
                     "open": display.is_open,
                     "view": view_state,
+                    "line_length": display.line_length,
+                    "lines": display.lines,
                 },
             )
             return

@@ -39,7 +39,25 @@ Only `pyserial` is required; the API uses the Python standard library.
 
    The server binds to `0.0.0.0:8000`.
 
-3. **Default view**
+3. **Open the route tester**
+
+   ```
+   http://localhost:8000/
+   ```
+
+   The index page is a self-contained tester for everything below: forms for
+   `/display` and `/scroll`, buttons for `/reset` and `/health`, a box for raw
+   paths (handy for checking the 404 fall-through), and a request log with
+   status codes and timings. It also draws a 20x2 preview that runs the same
+   ticker maths as the server, so you can line a message up before sending it
+   to the glass.
+
+   The page is plain HTML served from `index.html` next to `main.py`, read on
+   each request — edit it and refresh, no restart needed. There is no
+   authentication on it or on any route, so keep the API on a private network
+   or tailnet.
+
+4. **Default view**
 
    On startup the display shows:
 
@@ -48,7 +66,7 @@ Only `pyserial` is required; the API uses the Python standard library.
    2026-08-03 16:45:30    (updates every second)
    ```
 
-4. **Update the display via GET query params**
+5. **Update the display via GET query params**
 
    ```bash
    curl -G 'http://localhost:8000/display' \
@@ -56,7 +74,7 @@ Only `pyserial` is required; the API uses the Python standard library.
         --data-urlencode 'line2=$12.34'
    ```
 
-5. **Scroll long text (ticker view)**
+6. **Scroll long text (ticker view)**
 
    `/scroll` takes the same `line1` / `line2` params, but any line longer than
    the display width (20 chars) scrolls continuously instead of being cut off.
@@ -91,17 +109,20 @@ Only `pyserial` is required; the API uses the Python standard library.
    `escpos` and `cd5220`; `raw` mode has no way to target a single line and
    still rewrites both.
 
-6. **Reset to the default clock view**
+7. **Reset to the default clock view**
 
    ```bash
    curl http://localhost:8000/reset
    ```
 
-7. **Check service status**
+8. **Check service status**
 
    ```bash
    curl http://localhost:8000/health
    ```
+
+   Alongside the port, baud, mode and current view it reports `line_length`
+   and `lines`, which is how the route tester sizes its preview.
 
 ## Tailscale access
 
@@ -111,7 +132,9 @@ If Tailscale is running, the API is reachable from any device on your tailnet at
 http://<tailscale-ip>:8000/display?line1=Hello&line2=World
 ```
 
-Replace `<tailscale-ip>` with this device's Tailscale IP (`100.98.42.83`).
+Replace `<tailscale-ip>` with this device's Tailscale IP (`100.98.42.83`). The
+route tester works the same way from a phone or laptop on the tailnet:
+`http://<tailscale-ip>:8000/`.
 
 ## Start on boot (systemd)
 
@@ -132,6 +155,7 @@ It will start automatically on boot after the network and Tailscale are availabl
 - `config.json` – serial port, baud rate, and display mode.
 - `discover.py` – interactive probe to find the display.
 - `display.py` – serial driver (`raw`, `cd5220`, `escpos`).
+- `index.html` – route tester page served at `/`.
 - `main.py` – HTTP API server with default clock and scrolling ticker views.
 - `pos-display.service` – systemd unit for startup.
 - `requirements.txt` – only `pyserial`.
