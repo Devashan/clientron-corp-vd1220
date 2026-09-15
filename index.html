@@ -168,16 +168,18 @@
       <form id="fDisplay">
         <div>
           <div class="field-head"><label for="d1">line1</label><span class="count" id="cD1">0 / 20</span></div>
-          <input type="text" id="d1" name="line1" placeholder="Sale" autocomplete="off" />
+          <input type="text" id="d1" name="line1" placeholder="Do not disturb" autocomplete="off" />
         </div>
         <div>
           <div class="field-head"><label for="d2">line2</label><span class="count" id="cD2">0 / 20</span></div>
-          <input type="text" id="d2" name="line2" placeholder="$12.34" autocomplete="off" />
+          <input type="text" id="d2" name="line2" placeholder="Back at 14:00" autocomplete="off" />
         </div>
         <div class="chips">
-          <button type="button" data-fill="Sale|$12.34">Sale</button>
-          <button type="button" data-fill="Total|$104.90">Total</button>
-          <button type="button" data-fill="Thank you!|Please call again">Thanks</button>
+          <button type="button" data-fill="Focus until 12:30|Do not disturb">Focus</button>
+          <button type="button" data-fill="ON AIR|Recording - shhh">On air</button>
+          <button type="button" data-fill="Away from desk|Back at 14:00">Away</button>
+          <button type="button" data-fill="Deploy in progress|Do not unplug">Deploy</button>
+          <button type="button" data-fill="Hello, Devii|Home office">Hello</button>
           <button type="button" data-fill="|">clear (400)</button>
         </div>
         <div class="actions">
@@ -195,11 +197,11 @@
       <form id="fScroll">
         <div>
           <div class="field-head"><label for="s1">line1</label><span class="count" id="cS1">0 / 20</span></div>
-          <input type="text" id="s1" name="line1" placeholder="Welcome to Clientron - ask about our specials" autocomplete="off" />
+          <input type="text" id="s1" name="line1" placeholder="In a meeting - back at the top of the hour" autocomplete="off" />
         </div>
         <div>
           <div class="field-head"><label for="s2">line2</label><span class="count" id="cS2">0 / 20</span></div>
-          <input type="text" id="s2" name="line2" placeholder="$12.34" autocomplete="off" />
+          <input type="text" id="s2" name="line2" placeholder="DO NOT DISTURB" autocomplete="off" />
         </div>
         <div class="row">
           <div>
@@ -212,10 +214,19 @@
           </div>
         </div>
         <div class="chips">
-          <button type="button" data-fill="Welcome to Clientron - ask about our specials|$12.34">Welcome</button>
-          <button type="button" data-fill="Fresh coffee, all day - brewed on the hour|">Coffee</button>
+          <button type="button" data-fill="In a meeting - back at the top of the hour|DO NOT DISTURB">Meeting</button>
+          <button type="button" data-fill="Deep work until 17:00 - I will reply to messages after|FOCUS MODE">Focus</button>
+          <button type="button" data-fill="Recording in progress - please keep the noise down|ON AIR">On air</button>
+          <button type="button" data-fill="Build running - please do not unplug the desk|CI: in progress">Build</button>
+          <button type="button" data-fill="Away from the desk - back in five minutes|BRB">Away</button>
+          <button type="button" data-fill="Desk is free - door is open, come say hi|AVAILABLE">Free</button>
+          <button type="button" data-fill="Coffee refill, then back to it - kettle is on|BRB 5 MIN">Coffee</button>
+          <button type="button" data-fill="Uptime is a feature - this thing has been on for weeks|HOME OFFICE">Idle</button>
+        </div>
+        <div class="chips">
           <button type="button" data-gap="  ***  ">gap ***</button>
           <button type="button" data-gap="   ">gap 3sp</button>
+          <button type="button" data-gap=" - ">gap -</button>
         </div>
         <div class="actions">
           <button class="send" type="submit">Send</button>
